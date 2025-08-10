@@ -3,8 +3,8 @@ import ttnn
 # Open device
 device = ttnn.open_device(device_id=0)
 
-# Create a tensor with all elements set to 1.0
-a = ttnn.rand(
+# Create a random tensor for input
+x = ttnn.rand(
     shape=(32, 32),            # 32x32 matrix
     dtype=ttnn.bfloat16,       # data type
     layout=ttnn.TILE_LAYOUT,   # TTNN uses TILE_LAYOUT to enable performance on hardware
@@ -13,9 +13,19 @@ a = ttnn.rand(
     high=1.0,                  # upper bound for random values
 )
 
-# Create a tensor with all elements set to 2.0
+# Create a random tensor for weights
+w = ttnn.rand(
+    shape=(32, 32),            # 32x32 matrix
+    dtype=ttnn.bfloat16,       # data type
+    layout=ttnn.TILE_LAYOUT,   # TTNN uses TILE_LAYOUT to enable performance on hardware
+    device=device,             # specify the device
+    low=-1.0,                  # lower bound for random values
+    high=1.0,                  # upper bound for random values
+)
+
+# Create a random tensor for bias
 b = ttnn.rand(
-    shape=(32, 32),            # 32x32 matrix
+    shape=(1, 32),            # 32x32 matrix
     dtype=ttnn.bfloat16,       # data type
     layout=ttnn.TILE_LAYOUT,   # TTNN uses TILE_LAYOUT to enable performance on hardware
     device=device,             # specify the device
@@ -23,13 +33,18 @@ b = ttnn.rand(
     high=1.0,                  # upper bound for random values
 )
 
-c = ttnn.matmul(a, b, memory_config=ttnn.L1_MEMORY_CONFIG)
-d = ttnn.sigmoid(c)
-del c # SRAM is very limited, so we delete c to free up memory
+# Put the tensors into SRAM to optimize memory access
+y = ttnn.matmul(x, w, memory_config=ttnn.L1_MEMORY_CONFIG)
+z = ttnn.add(y, b, memory_config=ttnn.L1_MEMORY_CONFIG)
+# L1 is a very limited resource, free as soon as possible
+del y
+# no L1_MEMORY_CONFIG in activation - result on DRAM
+res = ttnn.sigmoid(z)
+del z
 
 # Print the result
 print("Result of adding two tensors:")
-print(d)
+print(res)
 
 
 
